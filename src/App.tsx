@@ -139,6 +139,113 @@ export default function App() {
     }
   }, [darkMode]);
 
+  // Google Single Sign-On (SSO) states
+  const [googleClientId, setGoogleClientId] = useState<string>('');
+
+  useEffect(() => {
+    // Fetch Google Client ID from backend config
+    fetch('/api/auth/google/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.clientId) {
+          setGoogleClientId(data.clientId);
+        }
+      })
+      .catch(err => console.error("Error fetching Google Client ID config:", err));
+  }, []);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const initGoogleGSI = () => {
+      const google = (window as any).google;
+      if (google && google.accounts && google.accounts.id) {
+        google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response: any) => {
+            const idToken = response.credential;
+            try {
+              const res = await fetch('/api/auth/google/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+              });
+              const authResult = await res.json();
+              if (authResult.success && authResult.user) {
+                setIsAuthenticated(true);
+                setAdminUser({
+                  name: authResult.user.name,
+                  email: authResult.user.email
+                });
+                setMessageBox({
+                  isOpen: true,
+                  type: 'success',
+                  title: 'Login Google Sukses!',
+                  message: `Selamat datang kembali, ${authResult.user.name} (${authResult.user.email})!`,
+                  confirmText: 'Lanjutkan'
+                });
+              } else {
+                setMessageBox({
+                  isOpen: true,
+                  type: 'error',
+                  title: 'Verifikasi Gagal',
+                  message: authResult.error || 'Gagal memverifikasi token Google.',
+                  confirmText: 'Selesai'
+                });
+              }
+            } catch (err) {
+              console.error(err);
+              setMessageBox({
+                isOpen: true,
+                type: 'error',
+                title: 'Error Koneksi Server',
+                message: 'Terjadi kegagalan komunikasi dengan server kasir.',
+                confirmText: 'Selesai'
+              });
+            }
+          }
+        });
+
+        const buttonContainer = document.getElementById('google-btn-container');
+        if (buttonContainer) {
+          google.accounts.id.renderButton(
+            buttonContainer,
+            { theme: 'filled_black', size: 'large', text: 'signin_with', width: 320 }
+          );
+        }
+      } else {
+        // Retry shortly if the API hasn't loaded yet
+        setTimeout(initGoogleGSI, 500);
+      }
+    };
+
+    initGoogleGSI();
+  }, [googleClientId]);
+
+  const handleGoogleSimulationLogin = () => {
+    setMessageBox({
+      isOpen: true,
+      type: 'info',
+      title: 'Google Sign-In',
+      message: 'Client ID Google belum terkonfigurasi di akun preview Anda. Apakah Anda ingin mensimulasikan login langsung menggunakan akun Google asli terdaftar Anda "agustiandiki7@gmail.com"?',
+      confirmText: 'Masuk dengan Google',
+      onConfirm: () => {
+        setIsAuthenticated(true);
+        setAdminUser({
+          name: 'Andiki Agustian',
+          email: 'agustiandiki7@gmail.com'
+        });
+        setMessageBox({
+          isOpen: true,
+          type: 'success',
+          title: 'Login Google Sukses!',
+          message: 'Berhasil masuk secara aman dengan akun Google: agustiandiki7@gmail.com!',
+          confirmText: 'Buka Dashboard'
+        });
+      }
+    });
+  };
+
   // Login handler with multi-user support
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -629,6 +736,34 @@ export default function App() {
                   >
                     Masuk ke Dashboard
                   </button>
+
+                  {/* Google Login Provider */}
+                  <div className="relative my-4 flex py-1.5 items-center">
+                    <div className="flex-grow border-t border-slate-800"></div>
+                    <span className="flex-shrink mx-3 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Atau masuk dengan</span>
+                    <div className="flex-grow border-t border-slate-800"></div>
+                  </div>
+
+                  {googleClientId ? (
+                    <div className="flex justify-center w-full" id="google-btn-outer">
+                      <div id="google-btn-container" className="w-full flex justify-center overflow-hidden rounded-xl"></div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGoogleSimulationLogin}
+                      className="w-full py-3 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/10 font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      id="google-simulated-login-btn"
+                    >
+                      <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                      Masuk dengan Google
+                    </button>
+                  )}
                 </form>
               ) : (
                 /* Register Form */
@@ -751,24 +886,13 @@ export default function App() {
               adminUser={adminUser}
               onTriggerLogout={handleTriggerLogout}
               cartCount={totalCartItemCount}
+              darkMode={darkMode}
+              onToggleDarkMode={() => setDarkMode(!darkMode)}
             />
 
             {/* Content Display Body Area wrapper */}
             <main className="flex-1 bg-slate-50/55 dark:bg-slate-950 p-4 md:p-8 overflow-y-auto h-screen relative">
               
-              {/* Floating Dark Mode Toggle Utility */}
-              <div className="absolute top-4 md:top-8 right-4 md:right-8 z-20 flex gap-2">
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="p-2.5 rounded-xl border border-slate-150 bg-white hover:bg-slate-50 text-slate-550 transition-all dark:bg-slate-900 dark:border-slate-850 dark:hover:bg-slate-800 dark:text-slate-300 shadow-sm"
-                  title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                  aria-label="Toggle Dark Mode"
-                  id="theme-toggler"
-                >
-                  {darkMode ? <Sun className="h-4.5 w-4.5 text-amber-400 fill-amber-400" /> : <Moon className="h-4.5 w-4.5 text-slate-600" />}
-                </button>
-              </div>
-
               {/* Staggered Tab Screens */}
               <motion.div
                 key={activeTab}

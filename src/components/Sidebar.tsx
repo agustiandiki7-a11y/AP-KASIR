@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, Utensils, PlusCircle, Users, ShoppingCart, BarChart3, Info, Key, LogOut, 
-  Menu, X, Sparkles, ChefHat, Dot
+  Menu, X, Sparkles, ChefHat, Dot, Sun, Moon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -16,9 +16,11 @@ interface SidebarProps {
   adminUser: { name: string; email: string };
   onTriggerLogout: () => void;
   cartCount: number;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
 }
 
-export function Sidebar({ activeTab, onSelectTab, adminUser, onTriggerLogout, cartCount }: SidebarProps) {
+export function Sidebar({ activeTab, onSelectTab, adminUser, onTriggerLogout, cartCount, darkMode, onToggleDarkMode }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Core navigation items mimicking the test modules in order
@@ -54,6 +56,15 @@ export function Sidebar({ activeTab, onSelectTab, adminUser, onTriggerLogout, ca
               {cartCount} DRAFT
             </span>
           )}
+          <button
+            onClick={onToggleDarkMode}
+            className="p-1.5 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-800"
+            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Dark Mode"
+            id="theme-toggler-mobile"
+          >
+            {darkMode ? <Sun className="h-4.5 w-4.5 text-amber-400 fill-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
+          </button>
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors border border-slate-800"
@@ -144,16 +155,28 @@ export function Sidebar({ activeTab, onSelectTab, adminUser, onTriggerLogout, ca
 
         {/* Brand Admin profile footer & Logout trigger */}
         <div className="border-t border-slate-800 pt-5 space-y-4">
-          <div className="flex items-center gap-2.5 px-1.5">
-            <div className="h-9 w-9 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center">
-              <span className="font-extrabold text-xs text-indigo-300 uppercase">
-                {adminUser.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-              </span>
+          <div className="flex items-center justify-between gap-2 px-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center">
+                <span className="font-extrabold text-xs text-indigo-300 uppercase">
+                  {adminUser.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </span>
+              </div>
+              <div className="flex-grow truncate max-w-[110px]">
+                <span className="block text-xs font-bold text-slate-200 truncate">{adminUser.name}</span>
+                <span className="block text-[10px] text-slate-500 truncate">{adminUser.email}</span>
+              </div>
             </div>
-            <div className="flex-1 truncate max-w-[140px]">
-              <span className="block text-xs font-bold text-slate-200 truncate">{adminUser.name}</span>
-              <span className="block text-[10px] text-slate-500 truncate">{adminUser.email}</span>
-            </div>
+
+            <button
+              onClick={onToggleDarkMode}
+              className="p-1.5 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 rounded-xl transition-all"
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Dark Mode"
+              id="theme-toggler"
+            >
+              {darkMode ? <Sun className="h-4.5 w-4.5 text-amber-400 fill-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
+            </button>
           </div>
 
           <button
