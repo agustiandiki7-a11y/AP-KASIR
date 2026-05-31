@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, Utensils, PlusCircle, Users, ShoppingCart, BarChart3, Info, Key, LogOut, 
-  Menu, X, Sparkles, ChefHat, Dot, Sun, Moon
+  Menu, X, Sparkles, ChefHat, Dot, Sun, Moon, Layers
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +32,7 @@ export function Sidebar({ activeTab, onSelectTab, adminUser, onTriggerLogout, ca
     { id: 'penjualan', label: 'Menu Penjualan', icon: ShoppingCart, badge: cartCount > 0 ? `${cartCount} Draft` : null },
     { id: 'laporan', label: 'Menu Laporan', icon: BarChart3, badge: 'Periodik' },
     { id: 'tentang', label: 'Menu Tentang', icon: Info, badge: null },
+    { id: 'figma', label: 'Desain Figma', icon: Layers, badge: 'HOT' },
     { id: 'ubah-password', label: 'Ubah Password', icon: Key, badge: null },
   ];
 

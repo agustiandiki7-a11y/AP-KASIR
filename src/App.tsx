@@ -14,6 +14,7 @@ import { Sidebar } from './components/Sidebar';
 import { NotificationModal } from './components/NotificationModal';
 import { BerandaView } from './components/Views/BerandaView';
 import { TentangView } from './components/Views/TentangView';
+import { FigmaView } from './components/Views/FigmaView';
 import { KaryawanView } from './components/Views/KaryawanView';
 import { MakananView } from './components/Views/MakananView';
 import { TambahMakananView } from './components/Views/TambahMakananView';
@@ -50,7 +51,9 @@ export default function App() {
   });
 
   // Registration form states
-  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(() => {
+    return window.location.hash === '#/register';
+  });
   const [registerName, setRegisterName] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
@@ -80,6 +83,10 @@ export default function App() {
 
   // Active Tab navigation
   const [activeTab, setActiveTab] = useState<string>(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/dashboard/')) {
+      return hash.split('/')[2] || 'beranda';
+    }
     return localStorage.getItem('eresto_active_tab') || 'beranda';
   });
 
@@ -138,6 +145,59 @@ export default function App() {
       rootElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Synchronize dynamic routing URL hashes with local React states
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/dashboard')) {
+        const parts = hash.split('/');
+        const tab = parts[2] || 'beranda';
+        if (isAuthenticated) {
+          setActiveTab(tab);
+        } else {
+          // Keep at login if trying to deep link without authentication
+          window.location.hash = '#/login';
+        }
+      } else if (hash === '#/register') {
+        if (isAuthenticated) {
+          window.location.hash = `#/dashboard/${activeTab}`;
+        } else {
+          setIsRegisterMode(true);
+        }
+      } else {
+        // Any other hashes e.g. #/login or empty
+        if (isAuthenticated) {
+          window.location.hash = `#/dashboard/${activeTab}`;
+        } else {
+          setIsRegisterMode(false);
+          if (hash !== '#/login') {
+            window.location.hash = '#/login';
+          }
+        }
+      }
+    };
+
+    handleHashChange();
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [isAuthenticated]);
+
+  // Sync state changes back to Browser URL Hash
+  useEffect(() => {
+    if (isAuthenticated) {
+      const targetHash = `#/dashboard/${activeTab}`;
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+    } else {
+      const targetHash = isRegisterMode ? '#/register' : '#/login';
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+    }
+  }, [isAuthenticated, isRegisterMode, activeTab]);
 
   // Google Single Sign-On (SSO) states
   const [googleClientId, setGoogleClientId] = useState<string>('');
@@ -605,6 +665,8 @@ export default function App() {
         return <LaporanView transactions={transactions} menuItems={menuItems} />;
       case 'tentang':
         return <TentangView profile={DEVELOPER_PROFILE} />;
+      case 'figma':
+        return <FigmaView />;
       case 'ubah-password':
         return <UbahPasswordView onUpdatePassword={handleUpdatePassword} />;
       default:
