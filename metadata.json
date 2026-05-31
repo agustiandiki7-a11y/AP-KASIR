@@ -1,0 +1,8 @@
+{
+  "name": "E-Resto Kasir Cerdas",
+  "description": "Aplikasi manajemen operasional restoran terpadu meliputi modul kasir POS (penjualan), roster karyawan, persediaan porsi hidangan, laporan periodik, profil pengembang, dan otentikasi kata sandi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
