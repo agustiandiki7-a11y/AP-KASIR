@@ -38,12 +38,38 @@ export default function App() {
   });
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [adminUser, setAdminUser] = useState({
-    name: 'Andiki Agustian',
-    email: 'agustiandiki7@gmail.com'
+  const [adminUser, setAdminUser] = useState<{name: string, email: string}>(() => {
+    const saved = localStorage.getItem('eresto_admin_user');
+    return saved ? JSON.parse(saved) : {
+      name: 'Andiki Agustian',
+      email: 'agustiandiki7@gmail.com'
+    };
   });
   const [adminPassword, setAdminPassword] = useState(() => {
     return localStorage.getItem('eresto_password') || 'admin123';
+  });
+
+  // Registration form states
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
+  const [registerName, setRegisterName] = useState('');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+
+  // Local persistent registration accounts database
+  const [usersList, setUsersList] = useState<{username: string, password: string, name: string}[]>(() => {
+    const saved = localStorage.getItem('eresto_users_list');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Fallback below
+      }
+    }
+    const defaultPassword = localStorage.getItem('eresto_password') || 'admin123';
+    return [
+      { username: 'admin', password: defaultPassword, name: 'Andiki Agustian' }
+    ];
   });
 
   // Dark/Light Mode state
@@ -99,7 +125,9 @@ export default function App() {
     localStorage.setItem('eresto_menu_items', JSON.stringify(menuItems));
     localStorage.setItem('eresto_employees', JSON.stringify(employees));
     localStorage.setItem('eresto_transactions', JSON.stringify(transactions));
-  }, [isAuthenticated, adminPassword, darkMode, activeTab, menuItems, employees, transactions]);
+    localStorage.setItem('eresto_admin_user', JSON.stringify(adminUser));
+    localStorage.setItem('eresto_users_list', JSON.stringify(usersList));
+  }, [isAuthenticated, adminPassword, darkMode, activeTab, menuItems, employees, transactions, adminUser, usersList]);
 
   // Dark theme class toggle
   useEffect(() => {
@@ -111,14 +139,26 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Login handler
+  // Login handler with multi-user support
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correctUsername = 'admin';
+    const cleanUsername = loginUsername.trim().toLowerCase();
     
-    if (loginUsername.trim().toLowerCase() === correctUsername && loginPassword === adminPassword) {
+    // Check if the user exists in our usersList
+    const matchedUser = usersList.find(
+      u => u.username.toLowerCase() === cleanUsername && u.password === loginPassword
+    );
+    
+    if (matchedUser) {
       // Success Login
       setIsAuthenticated(true);
+      setAdminUser({
+        name: matchedUser.name,
+        email: `${matchedUser.username.toLowerCase()}@eresto.com`
+      });
+      if (cleanUsername === 'admin') {
+        setAdminPassword(matchedUser.password);
+      }
       setLoginUsername('');
       setLoginPassword('');
     } else {
@@ -132,6 +172,97 @@ export default function App() {
         confirmText: 'Coba Lagi'
       });
     }
+  };
+
+  // Register state handler for new admin/cashier account signup
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const cleanUsername = registerUsername.trim().toLowerCase();
+    if (!registerName.trim()) {
+      setMessageBox({
+        isOpen: true,
+        type: 'error',
+        title: 'Formulir Kosong',
+        message: 'Nama Lengkap wajib diisi!',
+        confirmText: 'Selesai'
+      });
+      return;
+    }
+    
+    if (cleanUsername.length < 3) {
+      setMessageBox({
+        isOpen: true,
+        type: 'error',
+        title: 'Username Pendek',
+        message: 'Username minimal harus berukuran 3 karakter!',
+        confirmText: 'Selesai'
+      });
+      return;
+    }
+
+    if (registerPassword.length < 5) {
+      setMessageBox({
+        isOpen: true,
+        type: 'error',
+        title: 'Sandi Terlalu Lemah',
+        message: 'Kata sandi baru minimal harus berukuran 5 karakter!',
+        confirmText: 'Selesai'
+      });
+      return;
+    }
+
+    if (registerPassword !== registerConfirmPassword) {
+      setMessageBox({
+        isOpen: true,
+        type: 'error',
+        title: 'Sandi Tidak Cocok',
+        message: 'Konfirmasi Sandi tidak cocok dengan Kata Sandi!',
+        confirmText: 'Ulangi'
+      });
+      return;
+    }
+
+    // Check if duplicate user exists
+    const isExisted = usersList.some(
+      u => u.username.toLowerCase() === cleanUsername
+    );
+    if (isExisted) {
+      setMessageBox({
+        isOpen: true,
+        type: 'error',
+        title: 'Nama Pengguna Terpakai',
+        message: 'Username ini sudah terdaftar oleh admin lain. Silakan pakai username unik.',
+        confirmText: 'Ganti Username'
+      });
+      return;
+    }
+
+    // Append new admin to the database
+    const newUser = {
+      username: cleanUsername,
+      password: registerPassword,
+      name: registerName.trim()
+    };
+    
+    setUsersList(prev => [...prev, newUser]);
+
+    // Clear register inputs
+    setRegisterName('');
+    setRegisterUsername('');
+    setRegisterPassword('');
+    setRegisterConfirmPassword('');
+    
+    // Auto toggle to Login Screen
+    setIsRegisterMode(false);
+
+    setMessageBox({
+      isOpen: true,
+      type: 'success',
+      title: 'Registrasi Sukses!',
+      message: `Akun untuk "${newUser.name}" (${newUser.username}) siap dipasang! Silakan ketik username dan password tadi untuk login.`,
+      confirmText: 'Lanjutkan Ke Login'
+    });
   };
 
   // Logout handler
@@ -420,56 +551,175 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Login Form */}
-              <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs font-semibold text-slate-350">
-                
-                {/* Username Input */}
-                <div>
-                  <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Nama Pengguna (Username)</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
-                      <User className="h-4.5 w-4.5" />
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={loginUsername}
-                      onChange={e => setLoginUsername(e.target.value)}
-                      placeholder="Masukkan username admin..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all"
-                      id="login-username-input"
-                    />
-                  </div>
-                </div>
-
-                {/* Password Input */}
-                <div>
-                  <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Kata Sandi (Password)</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
-                      <Lock className="h-4.5 w-4.5" />
-                    </span>
-                    <input
-                      type="password"
-                      required
-                      value={loginPassword}
-                      onChange={e => setLoginPassword(e.target.value)}
-                      placeholder="Masukkan kata sandi..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all font-mono"
-                      id="login-password-input"
-                    />
-                  </div>
-                </div>
-
-                {/* Security trigger Button */}
+              {/* Toggle switch between Login and Register */}
+              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/40 p-1 rounded-xl mb-6">
                 <button
-                  type="submit"
-                  className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 font-extrabold uppercase tracking-widest text-[#0F172A] rounded-xl shadow-lg shadow-emerald-950/40 hover:shadow-emerald-950/50 transition active:scale-[0.98]"
-                  id="login-submit-btn"
+                  type="button"
+                  onClick={() => setIsRegisterMode(false)}
+                  className={`flex-1 py-2 text-center text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                    !isRegisterMode
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 shadow-inner'
+                      : 'border border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                  id="tab-toggle-login"
                 >
-                  Masuk ke Dashboard
+                  Masuk (Login)
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={() => setIsRegisterMode(true)}
+                  className={`flex-1 py-2 text-center text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                    isRegisterMode
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 shadow-inner'
+                      : 'border border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                  id="tab-toggle-register"
+                >
+                  Daftar (Register)
+                </button>
+              </div>
+
+              {!isRegisterMode ? (
+                /* Login Form */
+                <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs font-semibold text-slate-350">
+                  
+                  {/* Username Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Nama Pengguna (Username)</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <User className="h-4.5 w-4.5" />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={loginUsername}
+                        onChange={e => setLoginUsername(e.target.value)}
+                        placeholder="Masukkan username admin..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all"
+                        id="login-username-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Kata Sandi (Password)</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Lock className="h-4.5 w-4.5" />
+                      </span>
+                      <input
+                        type="password"
+                        required
+                        value={loginPassword}
+                        onChange={e => setLoginPassword(e.target.value)}
+                        placeholder="Masukkan kata sandi..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all font-mono"
+                        id="login-password-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Security trigger Button */}
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 font-extrabold uppercase tracking-widest text-[#0F172A] rounded-xl shadow-lg shadow-emerald-950/40 hover:shadow-emerald-950/50 transition active:scale-[0.98]"
+                    id="login-submit-btn"
+                  >
+                    Masuk ke Dashboard
+                  </button>
+                </form>
+              ) : (
+                /* Register Form */
+                <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs font-semibold text-slate-350">
+                  
+                  {/* Name Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Nama Lengkap Anda</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <User className="h-4.5 w-4.5" />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={registerName}
+                        onChange={e => setRegisterName(e.target.value)}
+                        placeholder="Contoh: Diki Agustian..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all"
+                        id="register-name-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Username Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Nama Pengguna Baru (Username)</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400">
+                        <Sparkles className="h-4 w-4" />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={registerUsername}
+                        onChange={e => setRegisterUsername(e.target.value)}
+                        placeholder="Pilih nama pengguna unik..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all"
+                        id="register-username-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Kata Sandi Baru</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Lock className="h-4.5 w-4.5" />
+                      </span>
+                      <input
+                        type="password"
+                        required
+                        value={registerPassword}
+                        onChange={e => setRegisterPassword(e.target.value)}
+                        placeholder="Minimal berukuran 5 karakter..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all font-mono"
+                        id="register-password-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Confirm Password Input */}
+                  <div>
+                    <label className="block text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Konfirmasi Kata Sandi Baru</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Key className="h-4.5 w-4.5" />
+                      </span>
+                      <input
+                        type="password"
+                        required
+                        value={registerConfirmPassword}
+                        onChange={e => setRegisterConfirmPassword(e.target.value)}
+                        placeholder="Ketik ulang kata sandi baru..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl outline-none focus:border-emerald-400 text-white transition-all font-mono"
+                        id="register-confirm-password-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Register trigger Button */}
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 font-extrabold uppercase tracking-widest text-[#0F172A] rounded-xl shadow-lg shadow-emerald-950/40 hover:shadow-emerald-950/50 transition active:scale-[0.98]"
+                    id="register-submit-btn"
+                  >
+                    Daftar Akun Baru
+                  </button>
+                </form>
+              )}
 
               {/* Developer Helper & Info Tip Panel to enable complete, verified testing */}
               <div className="mt-8 pt-6 border-t border-slate-800/60 flex flex-col items-center gap-3">
@@ -477,9 +727,9 @@ export default function App() {
                   <HelpCircle className="h-3.5 w-3.5" /> Petunjuk Verifikasi Penguji
                 </span>
                 
-                <p className="text-[10px] text-slate-500 text-center leading-relaxed">
-                  Masukkan <span className="font-bold text-slate-350">admin</span> sebagai Username dan <span className="font-bold text-slate-350">{adminPassword}</span> sebagai Password.<br />
-                  <span className="text-amber-500/80 font-bold">Uji kegagalan:</span> masukkan kata sandi sembarang untuk memvalidasi kemunculan MessageBox error kesalahan.
+                <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+                  Default: Username <span className="font-bold text-white">admin</span> | Sandi <span className="font-bold text-white">{adminPassword}</span><br />
+                  Anda juga dapat mendaftarkan akun baru secara dinamis lewat tab <span className="text-emerald-400 font-bold">Daftar (Register)</span> di atas dan langsung mencobanya!
                 </p>
               </div>
 
